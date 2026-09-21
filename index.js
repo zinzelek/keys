@@ -10,8 +10,9 @@ import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
 
 // ===== KONFIGURACJA Z ENV (RAILWAY VARIABLES) =====
-const DISCORD_TOKEN = MTQ4MjM3MTgyMzk5MDQ3MjcyNA.G4Tc4G.Jnh81YfkjIPuvgD79QcSKOgb52_IVBmMb_cHLo;
-const CLIENT_ID =1482371823990472724;
+// index.js - TYLKO ODCZYT Z ENV
+const DISCORD_TOKEN = process.env.DISCORD_TOKEN;      // ← Pusty tutaj, wypełniany na Railway
+const CLIENT_ID = process.env.CLIENT_ID;
 const FIREBASE_CREDS = process.env.FIREBASE_CREDENTIALS;
 const FIREBASE_DB_URL = process.env.FIREBASE_DB_URL;
 
