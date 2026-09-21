@@ -1,7 +1,6 @@
 // index.js - InstaLing Key Gen Bot (discord.js v14 + Firebase Admin)
-// Wymaga: Node 18+, Railway/Koyeb/Render
+// Działa na Railway BEZ dotenv (zmienne wstrzykiwane automatycznie)
 
-import 'dotenv/config';
 import { 
   Client, GatewayIntentBits, REST, Routes, 
   SlashCommandBuilder, ChatInputCommandInteraction,
@@ -10,12 +9,11 @@ import {
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
 
-// ===== KONFIGURACJA Z ENV (USTAW W RAILWAY VARIABLES) =====
-const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
-const CLIENT_ID = process.env.CLIENT_ID;
-// Firebase Service Account JSON jako jeden string w zmiennej FIREBASE_CREDENTIALS
-const FIREBASE_CREDS = process.env.FIREBASE_CREDENTIALS; 
-const FIREBASE_DB_URL = process.env.FIREBASE_DB_URL; // np. https://instaling-bot-2362a-default-rtdb.europe-west1.firebasedatabase.app
+// ===== KONFIGURACJA Z ENV (RAILWAY VARIABLES) =====
+const DISCORD_TOKEN = MTQ4MjM3MTgyMzk5MDQ3MjcyNA.Gerntd.-rlTtntOy__N-KTZ_-DlHaZ_gS6rfHoM4BEapM;
+const CLIENT_ID =1482371823990472724;
+const FIREBASE_CREDS = process.env.FIREBASE_CREDENTIALS;
+const FIREBASE_DB_URL = process.env.FIREBASE_DB_URL;
 
 if (!DISCORD_TOKEN || !CLIENT_ID || !FIREBASE_CREDS || !FIREBASE_DB_URL) {
   console.error('❌ Brakuje zmiennych środowiskowych! Sprawdź Railway Variables.');
@@ -56,7 +54,7 @@ const genCommand = new SlashCommandBuilder()
     .setRequired(true)
     .setMinValue(1)
     .setMaxValue(50))
-  .setDefaultMemberPermissions('0'); // Tylko Ty (Admin) - zmień na 'Administrator' jeśli chcesz dla innych
+  .setDefaultMemberPermissions('0'); // Tylko Owner
 
 // ===== REJESTRACJA KOMEND =====
 const rest = new REST({ version: '10' }).setToken(DISCORD_TOKEN);
@@ -93,13 +91,13 @@ client.on('interactionCreate', async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
   if (interaction.commandName !== 'gen') return;
 
-  // Tylko owner bota może generować (bezpieczeństwo)
+  // Tylko Owner bota
   const app = await client.application.fetch();
   if (interaction.user.id !== app.owner.id) {
     return interaction.reply({ content: '❌ Tylko właściciel bota może generować klucze.', ephemeral: true });
   }
 
-  await interaction.deferReply({ ephemeral: true }); // Prywatna odpowiedź, mamy 15 min
+  await interaction.deferReply({ ephemeral: true });
 
   const type = interaction.options.getString('type');
   const count = interaction.options.getInteger('count');
@@ -107,9 +105,6 @@ client.on('interactionCreate', async (interaction) => {
   const expiresAt = getExpiryMs(type) === -1 ? -1 : now + getExpiryMs(type);
 
   const generated = [];
-  const errors = [];
-
-  // Zapis wsadowy (batch) - szybsze
   const updates = {};
   for (let i = 0; i < count; i++) {
     const key = makeKey();
@@ -121,20 +116,18 @@ client.on('interactionCreate', async (interaction) => {
   }
 
   try {
-    await db.ref().update(updates); // Atomiczny multi-path update
+    await db.ref().update(updates);
   } catch (e) {
     console.error('Firebase update error:', e);
-    errors.push(e.message);
   }
 
-  // ===== ODPOWIEDŹ (Embed + Przycisk Kopiuj) =====
+  // ===== ODPOWIEDŹ =====
   const embed = new EmbedBuilder()
     .setTitle(`✅ Wygenerowano ${generated.length}/${count} kluczy (${type})`)
     .setColor(type === 'LIFETIME' ? '#FFD700' : '#00FF00')
     .setTimestamp()
     .setFooter({ text: `Wygenerowane przez ${interaction.user.tag}`, iconURL: interaction.user.displayAvatarURL() });
 
-  // Dzielimy na chunki (Discord limit 4096 znaków w embed description, ale bezpieczniej 1000)
   const chunks = [];
   for (let i = 0; i < generated.length; i += 20) {
     chunks.push(generated.slice(i, i + 20).join('\n'));
@@ -145,7 +138,6 @@ client.on('interactionCreate', async (interaction) => {
     embed.addFields({ name: '...i więcej', value: `+${generated.length - 20} kluczy (pełna lista w przycisku)`, inline: false });
   }
 
-  // Przycisk: Kopiuj wszystkie (wysyła DM z listą)
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`copy_keys_${interaction.id}_${Buffer.from(generated.join(',')).toString('base64').slice(0, 50)}`)
@@ -156,12 +148,11 @@ client.on('interactionCreate', async (interaction) => {
   await interaction.editReply({ embeds: [embed], components: [row] });
 });
 
-// ===== PRZYCISK KOPIUJ (Interaction) =====
+// ===== PRZYCISK KOPIUJ =====
 client.on('interactionCreate', async (i) => {
   if (!i.isButton()) return;
   if (!i.customId.startsWith('copy_keys_')) return;
 
-  // Prosta walidacja: tylko ten kto wywołał może kliknąć (można dodać userId w customId)
   const keysB64 = i.customId.split('_')[3];
   if (!keysB64) return i.reply({ content: 'Błąd danych.', ephemeral: true });
   
